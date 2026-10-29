@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">NOVA AI</string>
+    <string name="nova_subtitle">Cinematic Female AI Voice Assistant</string>
+    <string name="mic_listening">Listening to your voice…</string>
+    <string name="nova_thinking">NOVA is processing…</string>
+    <string name="nova_speaking">NOVA is speaking…</string>
+    <string name="nova_idle">Ready for conversation</string>
+    <string name="tap_to_speak">Tap microphone to speak with NOVA</string>
+    <string name="type_message_hint">Ask NOVA anything or tap mic…</string>
+    <string name="mic_permission_rationale">Microphone access is required for real-time speech input so you can talk directly with NOVA.</string>
+    <string name="grant_permission">Grant Microphone Access</string>
+</resources>

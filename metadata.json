@@ -1,0 +1,6 @@
+{
+  "name": "NOVA AI",
+  "description": "Futuristic cinematic female AI voice companion featuring expressive speech, emotional nuance, real-time voice visualizer, and intelligent conversation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
