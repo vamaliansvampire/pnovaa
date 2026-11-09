@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardVoice
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
@@ -455,6 +456,47 @@ fun NovaSettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
+                        text = "Active Gemini Model",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GoldSecondary
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    val supportedModels = listOf(
+                        "gemini-3.8-flash" to "Gemini 3.8 Flash (Active · Recommended)",
+                        "gemini-3.5-flash" to "Gemini 3.5 Flash (Fast & Balanced)",
+                        "gemini-3.5-flash-lite" to "Gemini 3.5 Flash-Lite (High Speed)"
+                    )
+
+                    supportedModels.forEach { (modelId, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.updateModelId(modelId) }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 12.sp,
+                                color = if (settings.modelId == modelId) GoldAccent else TextWhite,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (settings.modelId == modelId) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected Model",
+                                    tint = GoldPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
                         text = "Configurable Gemini API Key",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -510,7 +552,58 @@ fun NovaSettingsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 4. Local Storage & Privacy Management
+            // 4. Android Voice Action System Directory
+            SettingsSectionHeader(title = "Native Android Voice Actions", icon = Icons.Default.KeyboardVoice)
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = ObsidianCard),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, ObsidianGoldBorder),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "NOVA connects spoken commands to real native Android system handlers:",
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        lineHeight = 16.sp
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    val commandGuide = listOf(
+                        "Flashlight / Torch" to "\"Turn on flashlight\", \"Torch band karo\", \"Toggle torch\"",
+                        "Battery Status" to "\"What is my battery level?\", \"Check battery\", \"Battery kitni hai\"",
+                        "System Time & Date" to "\"What time is it?\", \"What is today's date?\", \"Time batao\"",
+                        "Open Specific Apps" to "\"Open YouTube\", \"Open WhatsApp\", \"Open Chrome\", \"Open Settings\"",
+                        "Generic App Launch" to "\"Open <any installed app name>\", \"Launch <app>\"",
+                        "Connectivity" to "\"Open Wi-Fi settings\", \"Open Bluetooth settings\"",
+                        "Audio & Volume" to "\"Volume up\", \"Volume down\", \"Mute audio\", \"Max volume\"",
+                        "Media Playback" to "\"Play music\", \"Pause song\", \"Next track\", \"Previous track\"",
+                        "Phone Calls (Protected)" to "\"Call <name/number>\" → Speaks & requires confirmation before dialing",
+                        "SMS Messaging (Protected)" to "\"Send SMS to <name/number> saying <text>\" → Requires confirmation"
+                    )
+
+                    commandGuide.forEach { (category, example) ->
+                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                            Text(
+                                text = "• $category",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GoldAccent
+                            )
+                            Text(
+                                text = "   $example",
+                                fontSize = 11.sp,
+                                color = TextMuted
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 5. Local Storage & Privacy Management
             SettingsSectionHeader(title = "Local Data & Privacy", icon = Icons.Default.Delete)
 
             Card(

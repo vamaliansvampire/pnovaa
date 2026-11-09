@@ -21,7 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -161,7 +161,7 @@ fun NovaAppRoot() {
                     onClick = { currentScreen = NovaScreen.CHAT },
                     icon = {
                         Icon(
-                            imageVector = Icons.Default.Chat,
+                            imageVector = Icons.AutoMirrored.Filled.Chat,
                             contentDescription = "Chat",
                             modifier = Modifier.size(24.dp)
                         )

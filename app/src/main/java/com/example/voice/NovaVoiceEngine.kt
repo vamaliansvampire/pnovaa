@@ -167,7 +167,7 @@ class NovaVoiceEngine(
         val hasUrduScript = text.any { it in '\u0600'..'\u06FF' }
 
         if (hasUrduScript || settings.language == "ur") {
-            val urLocale = Locale("ur", "PK")
+            val urLocale = Locale.Builder().setLanguage("ur").setRegion("PK").build()
             val langResult = engine.isLanguageAvailable(urLocale)
             if (langResult >= TextToSpeech.LANG_AVAILABLE) {
                 engine.language = urLocale

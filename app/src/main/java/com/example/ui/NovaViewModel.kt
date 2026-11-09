@@ -3,6 +3,12 @@ package com.example.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.action.NovaActionExecutor
+import com.example.action.NovaActionParser
+import com.example.action.NovaActionResult
+import com.example.action.NovaActionType
+import com.example.action.ParsedCommand
+import com.example.action.PendingConfirmation
 import com.example.ai.NovaAiService
 import com.example.data.db.NovaDatabase
 import com.example.data.model.ChatMessage
@@ -20,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Locale
 import java.util.UUID
 
 enum class VisualizerState {
@@ -35,6 +42,9 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
     private val chatDao = db.chatDao()
     private val prefs = NovaPreferences(application)
     private val aiService = NovaAiService()
+
+    private val actionParser = NovaActionParser()
+    private val actionExecutor = NovaActionExecutor(application)
 
     private val voiceEngine: NovaVoiceEngine = NovaVoiceEngine(application) {
         onSpeechFinished()
@@ -74,6 +84,14 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
     val speakingAmplitude: StateFlow<Float> = voiceEngine.speakingAmplitude
     val currentEmotion: StateFlow<NovaEmotion> = voiceEngine.currentEmotion
     val availableVoices: StateFlow<List<VoiceOption>> = voiceEngine.availableVoices
+
+    val isFlashlightOn: StateFlow<Boolean> = actionExecutor.isFlashlightOn
+
+    private val _pendingConfirmation = MutableStateFlow<PendingConfirmation?>(null)
+    val pendingConfirmation: StateFlow<PendingConfirmation?> = _pendingConfirmation.asStateFlow()
+
+    private val _lastExecutedAction = MutableStateFlow<String?>(null)
+    val lastExecutedAction: StateFlow<String?> = _lastExecutedAction.asStateFlow()
 
     private val _isMuted = MutableStateFlow(false)
     val isMuted: StateFlow<Boolean> = _isMuted.asStateFlow()
@@ -181,6 +199,62 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
         voiceEngine.testVoice(settings.value)
     }
 
+    fun confirmPendingAction() {
+        val pending = _pendingConfirmation.value ?: return
+        _pendingConfirmation.value = null
+        executeCommandInternal(
+            command = ParsedCommand(NovaActionType.CONFIRM_ACTION, rawQuery = "Yes, proceed"),
+            activePending = pending,
+            userPrompt = "Confirmed"
+        )
+    }
+
+    fun cancelPendingAction() {
+        val pending = _pendingConfirmation.value ?: return
+        _pendingConfirmation.value = null
+        executeCommandInternal(
+            command = ParsedCommand(NovaActionType.CANCEL_ACTION, rawQuery = "No, cancel"),
+            activePending = pending,
+            userPrompt = "Canceled"
+        )
+    }
+
+    fun toggleFlashlight() {
+        sendMessage("toggle flashlight")
+    }
+
+    fun checkBattery() {
+        sendMessage("battery status")
+    }
+
+    fun checkTime() {
+        sendMessage("what time is it")
+    }
+
+    fun openYouTube() {
+        sendMessage("open youtube")
+    }
+
+    fun openWhatsApp() {
+        sendMessage("open whatsapp")
+    }
+
+    fun openChrome() {
+        sendMessage("open chrome")
+    }
+
+    fun openSettings() {
+        sendMessage("open settings")
+    }
+
+    fun openWifi() {
+        sendMessage("open wifi settings")
+    }
+
+    fun openBluetooth() {
+        sendMessage("open bluetooth settings")
+    }
+
     fun sendMessage(text: String = _inputText.value) {
         val trimmed = text.trim()
         if (trimmed.isBlank()) return
@@ -189,12 +263,38 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
         _errorMessage.value = null
         stopSpeaking()
 
-        val sessionId = _currentSessionId.value
+        val activePending = _pendingConfirmation.value
 
+        // Check for confirmation/cancellation of pending action
+        if (activePending != null) {
+            val confirmParsed = actionParser.parse(trimmed, hasPendingConfirmation = true)
+            if (confirmParsed != null && (confirmParsed.actionType == NovaActionType.CONFIRM_ACTION || confirmParsed.actionType == NovaActionType.CANCEL_ACTION)) {
+                _pendingConfirmation.value = null
+                executeCommandInternal(confirmParsed, activePending = activePending, userPrompt = trimmed)
+                return
+            }
+        }
+
+        // Check if command is a recognized native device action
+        val parsedCommand = actionParser.parse(trimmed, hasPendingConfirmation = false)
+        if (parsedCommand != null) {
+            executeCommandInternal(parsedCommand, activePending = null, userPrompt = trimmed)
+            return
+        }
+
+        // Otherwise execute standard conversational AI
+        executeAiConversation(trimmed)
+    }
+
+    private fun executeCommandInternal(
+        command: ParsedCommand,
+        activePending: PendingConfirmation?,
+        userPrompt: String
+    ) {
+        val sessionId = _currentSessionId.value
         viewModelScope.launch(Dispatchers.IO) {
-            // Ensure session exists
             val now = System.currentTimeMillis()
-            val sessionTitle = if (trimmed.length > 30) trimmed.take(30) + "…" else trimmed
+            val sessionTitle = if (userPrompt.length > 30) userPrompt.take(30) + "…" else userPrompt
             chatDao.insertSession(
                 ChatSession(
                     sessionId = sessionId,
@@ -208,7 +308,80 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
             val userMsg = ChatMessage(
                 sessionId = sessionId,
                 sender = "user",
-                text = trimmed,
+                text = userPrompt,
+                timestamp = now
+            )
+            chatDao.insertMessage(userMsg)
+
+            _visualizerState.value = VisualizerState.THINKING
+
+            // Execute on Main thread to safely interact with Android Intents and Framework Services
+            viewModelScope.launch(Dispatchers.Main) {
+                val result: NovaActionResult = actionExecutor.execute(command, activePending)
+
+                if (result.requiresConfirmation) {
+                    _pendingConfirmation.value = result.pendingConfirmation
+                } else {
+                    _pendingConfirmation.value = null
+                }
+
+                if (!result.isSuccess && result.errorMessage != null) {
+                    _errorMessage.value = result.errorMessage
+                } else {
+                    _errorMessage.value = null
+                }
+
+                _lastExecutedAction.value = result.displayText
+
+                // Insert NOVA Response in database
+                viewModelScope.launch(Dispatchers.IO) {
+                    val novaMsg = ChatMessage(
+                        sessionId = sessionId,
+                        sender = "nova",
+                        text = result.displayText,
+                        emotion = result.emotion,
+                        timestamp = System.currentTimeMillis()
+                    )
+                    chatDao.insertMessage(novaMsg)
+                    chatDao.updateSessionTitle(sessionId, sessionTitle, System.currentTimeMillis())
+                }
+
+                // Speak response in NOVA's voice
+                _visualizerState.value = VisualizerState.SPEAKING
+                val emotion = try {
+                    NovaEmotion.valueOf(result.emotion.uppercase(Locale.ROOT))
+                } catch (_: Exception) {
+                    NovaEmotion.WARM
+                }
+                voiceEngine.speak(
+                    text = result.spokenText,
+                    emotion = emotion,
+                    settings = settings.value
+                )
+            }
+        }
+    }
+
+    private fun executeAiConversation(prompt: String) {
+        val sessionId = _currentSessionId.value
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            val sessionTitle = if (prompt.length > 30) prompt.take(30) + "…" else prompt
+            chatDao.insertSession(
+                ChatSession(
+                    sessionId = sessionId,
+                    title = sessionTitle,
+                    createdAt = now,
+                    updatedAt = now
+                )
+            )
+
+            // Insert User Message
+            val userMsg = ChatMessage(
+                sessionId = sessionId,
+                sender = "user",
+                text = prompt,
                 timestamp = now
             )
             chatDao.insertMessage(userMsg)
@@ -218,9 +391,10 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
 
             // Call AI
             val response = aiService.generateResponse(
-                prompt = trimmed,
+                prompt = prompt,
                 history = _messages.value,
-                customApiKey = settings.value.customApiKey
+                customApiKey = settings.value.customApiKey,
+                preferredModel = settings.value.modelId
             )
 
             // Insert NOVA Response
@@ -228,7 +402,7 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
                 sessionId = sessionId,
                 sender = "nova",
                 text = response.text,
-                emotion = response.emotion.name.lowercase(),
+                emotion = response.emotion.name.lowercase(Locale.ROOT),
                 timestamp = System.currentTimeMillis()
             )
             chatDao.insertMessage(novaMsg)
@@ -273,6 +447,7 @@ class NovaViewModel(application: Application) : AndroidViewModel(application) {
     fun setTextOnlyMode(enabled: Boolean) = prefs.setTextOnlyMode(enabled)
     fun setEmotionalDelivery(enabled: Boolean) = prefs.setEmotionalDelivery(enabled)
     fun setCustomApiKey(key: String) = prefs.setCustomApiKey(key)
+    fun updateModelId(modelId: String) = prefs.updateModelId(modelId)
 
     // Session management
     fun startNewSession() {

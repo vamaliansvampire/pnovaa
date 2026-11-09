@@ -6,12 +6,11 @@ import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,22 +25,29 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -80,7 +86,6 @@ import com.example.ui.theme.TextGold
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.TextWhite
-import com.example.voice.NovaEmotion
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -103,7 +108,7 @@ fun NovaChatScreen(
     val visualizerState by viewModel.visualizerState.collectAsState()
     val isListening by viewModel.isListening.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
-    val settings by viewModel.settings.collectAsState()
+    val pendingConfirmation by viewModel.pendingConfirmation.collectAsState()
 
     val listState = rememberLazyListState()
 
@@ -141,7 +146,7 @@ fun NovaChatScreen(
                             color = TextWhite
                         )
                         Text(
-                            text = if (isListening) "Listening…" else if (visualizerState == VisualizerState.SPEAKING) "Speaking…" else "Online",
+                            text = if (isListening) "Listening…" else if (visualizerState == VisualizerState.SPEAKING) "Speaking…" else "Action System Online",
                             fontSize = 11.sp,
                             color = if (isListening) Color(0xFF64B5F6) else GoldSecondary
                         )
@@ -177,6 +182,70 @@ fun NovaChatScreen(
             )
         )
 
+        // Pending Action Confirmation Banner inside Chat
+        AnimatedVisibility(visible = pendingConfirmation != null) {
+            pendingConfirmation?.let { pending ->
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1A14)),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, GoldPrimary),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = null,
+                                tint = GoldPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = pending.title,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GoldAccent
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = pending.description,
+                            fontSize = 12.sp,
+                            color = TextWhite
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            OutlinedButton(
+                                onClick = { viewModel.cancelPendingAction() },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF5350)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF5350)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.Cancel, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Cancel", fontSize = 11.sp)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = { viewModel.confirmPendingAction() },
+                                colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = ObsidianDark, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Confirm", color = ObsidianDark, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Chat messages list
         LazyColumn(
             state = listState,
@@ -197,14 +266,14 @@ fun NovaChatScreen(
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Text(
-                            text = "Welcome to NOVA AI Conversation",
+                            text = "NOVA AI Action & Voice System",
                             fontWeight = FontWeight.Bold,
                             color = GoldPrimary,
                             fontSize = 14.sp
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Speak aloud using the microphone or type below. NOVA will speak responses in an emotionally attuned female voice.",
+                            text = "NOVA executes real Android voice commands (Flashlight, Battery, Time, YouTube, WhatsApp, Chrome, Settings, Volume) alongside conversational intelligence.",
                             color = TextSecondary,
                             fontSize = 12.sp,
                             lineHeight = 16.sp
@@ -217,11 +286,6 @@ fun NovaChatScreen(
                 ChatMessageItem(
                     message = message,
                     onSpeakAgain = {
-                        val emotion = try {
-                            NovaEmotion.valueOf(message.emotion.uppercase())
-                        } catch (_: Exception) {
-                            NovaEmotion.WARM
-                        }
                         viewModel.sendMessage(message.text)
                     },
                     onCopy = {
@@ -246,7 +310,7 @@ fun NovaChatScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "NOVA is formulating a response…",
+                            text = "NOVA is processing your request…",
                             fontSize = 12.sp,
                             color = TextMuted
                         )
@@ -256,6 +320,39 @@ fun NovaChatScreen(
 
             item {
                 Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+
+        // Quick Command Suggestions Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf(
+                "Toggle flashlight",
+                "Battery status",
+                "What time is it?",
+                "Open YouTube",
+                "Open WhatsApp",
+                "Open Settings",
+                "Volume up"
+            ).forEach { prompt ->
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = ObsidianCard,
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, ObsidianBorder),
+                    modifier = Modifier.clickable { viewModel.sendMessage(prompt) }
+                ) {
+                    Text(
+                        text = prompt,
+                        fontSize = 11.sp,
+                        color = GoldSecondary,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
             }
         }
 
@@ -276,7 +373,7 @@ fun NovaChatScreen(
                     onValueChange = { viewModel.onInputTextChanged(it) },
                     placeholder = {
                         Text(
-                            text = "Type message or tap mic…",
+                            text = "Type command or tap mic…",
                             color = TextMuted,
                             fontSize = 13.sp
                         )
@@ -339,7 +436,7 @@ fun NovaChatScreen(
                         .testTag("chat_send_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Send,
+                        imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Send",
                         tint = if (inputText.isNotBlank()) ObsidianDark else TextMuted
                     )
@@ -435,7 +532,7 @@ fun ChatMessageItem(
                         if (!isUser) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Icon(
-                                imageVector = Icons.Default.VolumeUp,
+                                imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                 contentDescription = "Speak Aloud",
                                 tint = GoldSecondary,
                                 modifier = Modifier

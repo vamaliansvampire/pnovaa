@@ -23,20 +23,32 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.VolumeMute
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.FlashlightOff
+import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.VolumeMute
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -49,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -93,16 +106,23 @@ fun NovaVoiceCoreScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val settings by viewModel.settings.collectAsState()
     val messages by viewModel.messages.collectAsState()
+    val isFlashlightOn by viewModel.isFlashlightOn.collectAsState()
+    val pendingConfirmation by viewModel.pendingConfirmation.collectAsState()
+    val lastExecutedAction by viewModel.lastExecutedAction.collectAsState()
 
     val lastNovaMessage = messages.lastOrNull { it.sender == "nova" }
 
     val promptSuggestions = listOf(
+        "Turn on flashlight",
+        "What is my battery level?",
+        "Open YouTube",
+        "Open WhatsApp",
+        "Tell me the time",
+        "Open Chrome",
+        "Increase volume",
+        "Open Wi-Fi settings",
         "Who are you, NOVA?",
-        "Tell me something uplifting",
-        "Mujhe ek khubsurat baat batao",
-        "How are you feeling today?",
-        "Explain quantum entanglement",
-        "Say a poetic quote in Urdu"
+        "Tell me something uplifting"
     )
 
     Column(
@@ -132,8 +152,8 @@ fun NovaVoiceCoreScreen(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "AI",
-                        fontSize = 13.sp,
+                        text = "ACTION AI",
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = GoldAccent,
                         modifier = Modifier
@@ -142,7 +162,7 @@ fun NovaVoiceCoreScreen(
                     )
                 }
                 Text(
-                    text = "Cinematic Female Voice Assistant",
+                    text = "Cinematic Voice Assistant & Action System",
                     fontSize = 11.sp,
                     color = TextMuted
                 )
@@ -157,7 +177,7 @@ fun NovaVoiceCoreScreen(
                         .testTag("mute_button")
                 ) {
                     Icon(
-                        imageVector = if (isMuted) Icons.Default.VolumeMute else Icons.Default.VolumeUp,
+                        imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeMute else Icons.AutoMirrored.Filled.VolumeUp,
                         contentDescription = if (isMuted) "Unmute" else "Mute",
                         tint = if (isMuted) Color(0xFFEF5350) else GoldSecondary
                     )
@@ -171,7 +191,7 @@ fun NovaVoiceCoreScreen(
                         .testTag("nav_to_chat_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Chat,
+                        imageVector = Icons.AutoMirrored.Filled.Chat,
                         contentDescription = "Chat History",
                         tint = GoldPrimary
                     )
@@ -193,7 +213,7 @@ fun NovaVoiceCoreScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Emotion & Voice Status Pill
         Surface(
@@ -234,17 +254,119 @@ fun NovaVoiceCoreScreen(
                         color = GoldAccent
                     )
                 }
+                if (isFlashlightOn) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "• ⚡ Torch On",
+                        fontSize = 11.sp,
+                        color = GoldPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        // Action Confirmation Banner (For Calls & SMS)
+        AnimatedVisibility(visible = pendingConfirmation != null) {
+            pendingConfirmation?.let { pending ->
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1A14)),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, GoldPrimary),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .testTag("action_confirmation_card")
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = "Confirmation Required",
+                                tint = GoldPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = pending.title,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GoldAccent
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = pending.description,
+                            fontSize = 13.sp,
+                            color = TextWhite,
+                            lineHeight = 18.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "NOVA is awaiting confirmation. Say \"Yes\" or \"Cancel\", or tap below.",
+                            fontSize = 11.sp,
+                            color = TextMuted
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            OutlinedButton(
+                                onClick = { viewModel.cancelPendingAction() },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF5350)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF5350)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.testTag("cancel_action_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Cancel,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Cancel", fontSize = 12.sp)
+                            }
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            Button(
+                                onClick = { viewModel.confirmPendingAction() },
+                                colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.testTag("confirm_action_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = ObsidianDark,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Confirm & Proceed",
+                                    color = ObsidianDark,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Central Futuristic NOVA Voice Visualizer Orb
         NovaVisualizerOrb(
             state = visualizerState,
             rmsLevel = rmsLevel,
             speakingAmplitude = speakingAmplitude,
-            size = 230.dp,
+            size = 220.dp,
             onOrbClick = {
                 // Tapping orb toggles between consciousness core and avatar view
             }
@@ -257,14 +379,14 @@ fun NovaVoiceCoreScreen(
             modifier = Modifier.padding(top = 8.dp)
         )
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Live Voice Status Indicator
         val statusLabel = when (visualizerState) {
             VisualizerState.LISTENING -> "Listening to your voice…"
-            VisualizerState.THINKING -> "NOVA is processing…"
+            VisualizerState.THINKING -> "NOVA is processing action…"
             VisualizerState.SPEAKING -> "NOVA is speaking…"
-            VisualizerState.IDLE -> if (isMuted) "Voice is muted" else "Ready for conversation"
+            VisualizerState.IDLE -> if (isMuted) "Voice is muted" else "Ready for voice commands"
         }
 
         Text(
@@ -329,7 +451,7 @@ fun NovaVoiceCoreScreen(
             }
         }
 
-        // Last spoken NOVA response card (with repeat / stop controls)
+        // Last executed action or response card
         if (lastNovaMessage != null) {
             Spacer(modifier = Modifier.height(10.dp))
             Card(
@@ -389,9 +511,87 @@ fun NovaVoiceCoreScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Suggested Conversation Sparks
+        // Android Native Voice Action Shortcuts
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Android Native Actions",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = GoldPrimary,
+                letterSpacing = 0.5.sp
+            )
+            Text(
+                text = "Voice Enabled",
+                fontSize = 10.sp,
+                color = TextMuted
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Native Action Quick Chips Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ActionQuickChip(
+                icon = if (isFlashlightOn) Icons.Default.FlashlightOn else Icons.Default.FlashlightOff,
+                label = if (isFlashlightOn) "Torch ON" else "Flashlight",
+                isActive = isFlashlightOn,
+                onClick = { viewModel.toggleFlashlight() }
+            )
+            ActionQuickChip(
+                icon = Icons.Default.BatteryChargingFull,
+                label = "Battery",
+                onClick = { viewModel.checkBattery() }
+            )
+            ActionQuickChip(
+                icon = Icons.Default.AccessTime,
+                label = "Time & Date",
+                onClick = { viewModel.checkTime() }
+            )
+            ActionQuickChip(
+                icon = Icons.Default.PlayArrow,
+                label = "YouTube",
+                onClick = { viewModel.openYouTube() }
+            )
+            ActionQuickChip(
+                icon = Icons.AutoMirrored.Filled.Chat,
+                label = "WhatsApp",
+                onClick = { viewModel.openWhatsApp() }
+            )
+            ActionQuickChip(
+                icon = Icons.Default.Settings,
+                label = "Settings",
+                onClick = { viewModel.openSettings() }
+            )
+            ActionQuickChip(
+                icon = Icons.Default.Wifi,
+                label = "Wi-Fi",
+                onClick = { viewModel.openWifi() }
+            )
+            ActionQuickChip(
+                icon = Icons.Default.Bluetooth,
+                label = "Bluetooth",
+                onClick = { viewModel.openBluetooth() }
+            )
+            ActionQuickChip(
+                icon = Icons.AutoMirrored.Filled.VolumeUp,
+                label = "Volume Up",
+                onClick = { viewModel.sendMessage("volume up") }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Suggested Conversation & Action Sparks
         Text(
-            text = "Conversation Sparks",
+            text = "Voice Command Examples",
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             color = TextMuted,
@@ -484,7 +684,7 @@ fun NovaVoiceCoreScreen(
                 )
             }
 
-            // Stop Speaking button
+            // Stop Speaking / Voice Test button
             IconButton(
                 onClick = {
                     if (isSpeaking) {
@@ -521,7 +721,7 @@ fun NovaVoiceCoreScreen(
                 onValueChange = { viewModel.onInputTextChanged(it) },
                 placeholder = {
                     Text(
-                        text = "Ask NOVA or tap mic…",
+                        text = "Speak or type voice command…",
                         color = TextMuted,
                         fontSize = 13.sp
                     )
@@ -557,11 +757,48 @@ fun NovaVoiceCoreScreen(
                     .testTag("home_send_button")
             ) {
                 Icon(
-                    imageVector = Icons.Default.Send,
+                    imageVector = Icons.AutoMirrored.Filled.Send,
                     contentDescription = "Send",
                     tint = if (inputText.isNotBlank()) ObsidianDark else TextMuted
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun ActionQuickChip(
+    icon: ImageVector,
+    label: String,
+    isActive: Boolean = false,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = if (isActive) GoldDark.copy(alpha = 0.5f) else ObsidianSurface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isActive) GoldPrimary else ObsidianGoldBorder
+        ),
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (isActive) GoldAccent else GoldSecondary,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                color = if (isActive) GoldAccent else TextWhite
+            )
         }
     }
 }

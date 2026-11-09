@@ -49,7 +49,8 @@ class NovaAiService {
     suspend fun generateResponse(
         prompt: String,
         history: List<ChatMessage>,
-        customApiKey: String? = null
+        customApiKey: String? = null,
+        preferredModel: String = "gemini-3.8-flash"
     ): NovaAiResponse = withContext(Dispatchers.IO) {
         val effectiveApiKey = when {
             !customApiKey.isNullOrBlank() -> customApiKey.trim()
@@ -58,13 +59,30 @@ class NovaAiService {
         }
 
         if (effectiveApiKey.isNotBlank()) {
+            val primaryModel = preferredModel.ifBlank { "gemini-3.8-flash" }
             try {
-                return@withContext callGeminiApi(prompt, history, effectiveApiKey)
-            } catch (e: Exception) {
-                // If API call failed due to invalid key or quota, provide a clear honest response
+                return@withContext callGeminiApi(prompt, history, effectiveApiKey, primaryModel)
+            } catch (primaryException: Exception) {
+                val primaryMsg = primaryException.localizedMessage.orEmpty()
+                // If primary model failed due to unavailable/not found/deprecated, try secondary fallback gemini-3.5-flash
+                if (primaryModel != "gemini-3.5-flash" && (
+                    primaryMsg.contains("not found", true) ||
+                    primaryMsg.contains("no longer available", true) ||
+                    primaryMsg.contains("404") ||
+                    primaryMsg.contains("deprecated", true)
+                )) {
+                    try {
+                        return@withContext callGeminiApi(prompt, history, effectiveApiKey, "gemini-3.5-flash")
+                    } catch (fallbackException: Exception) {
+                        return@withContext fallbackResponse(
+                            prompt = prompt,
+                            apiError = fallbackException.localizedMessage ?: primaryMsg
+                        )
+                    }
+                }
                 return@withContext fallbackResponse(
                     prompt = prompt,
-                    apiError = e.localizedMessage ?: "Network or API service error"
+                    apiError = primaryException.localizedMessage ?: "Network or API service error"
                 )
             }
         } else {
@@ -85,9 +103,10 @@ class NovaAiService {
     private fun callGeminiApi(
         prompt: String,
         history: List<ChatMessage>,
-        apiKey: String
+        apiKey: String,
+        modelName: String
     ): NovaAiResponse {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey"
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey"
 
         val contentsArray = JSONArray()
 
@@ -158,10 +177,15 @@ class NovaAiService {
             val root = JSONObject(errorJson)
             val errorObj = root.optJSONObject("error")
             val message = errorObj?.optString("message") ?: "HTTP error $statusCode"
+            val status = errorObj?.optString("status") ?: ""
             when {
-                statusCode == 400 && message.contains("API key not valid", true) ->
+                statusCode == 400 && (message.contains("API key not valid", true) || message.contains("API_KEY_INVALID", true)) ->
                     "The Gemini API key is invalid. Please check your key in Settings."
-                statusCode == 429 ->
+                statusCode == 404 || message.contains("not found", true) || message.contains("no longer available", true) ->
+                    "The model is unavailable ($message). Please verify your model in Settings."
+                statusCode == 403 ->
+                    "Access denied ($message). Please verify your Gemini API key permissions."
+                statusCode == 429 || status == "RESOURCE_EXHAUSTED" ->
                     "AI rate limit reached. Please wait a moment before trying again."
                 else -> message
             }

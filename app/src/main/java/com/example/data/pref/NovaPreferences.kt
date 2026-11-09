@@ -15,7 +15,8 @@ data class VoiceSettings(
     val continuousConversation: Boolean = false,
     val textOnlyMode: Boolean = false,
     val emotionalDelivery: Boolean = true,
-    val customApiKey: String = ""
+    val customApiKey: String = "",
+    val modelId: String = "gemini-3.8-flash"
 )
 
 class NovaPreferences(context: Context) {
@@ -67,6 +68,11 @@ class NovaPreferences(context: Context) {
         refresh()
     }
 
+    fun updateModelId(modelId: String) {
+        prefs.edit().putString("gemini_model_id", modelId).apply()
+        refresh()
+    }
+
     private fun loadSettings(): VoiceSettings {
         return VoiceSettings(
             pitch = prefs.getFloat("pitch", 1.12f),
@@ -77,7 +83,8 @@ class NovaPreferences(context: Context) {
             continuousConversation = prefs.getBoolean("continuous_conv", false),
             textOnlyMode = prefs.getBoolean("text_only", false),
             emotionalDelivery = prefs.getBoolean("emotional_delivery", true),
-            customApiKey = prefs.getString("custom_api_key", "") ?: ""
+            customApiKey = prefs.getString("custom_api_key", "") ?: "",
+            modelId = prefs.getString("gemini_model_id", "gemini-3.8-flash") ?: "gemini-3.8-flash"
         )
     }
 
